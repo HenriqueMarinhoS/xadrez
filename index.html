@@ -588,7 +588,7 @@
         <div class="room-code-box">
           <span style="font-size: 12px; color: var(--text-muted);">CÓDIGO:</span>
           <span class="room-code-val" id="room-code-display">---</span>
-          <button id="btn-copy-code" style="padding: 4px 8px; font-size: 11px;">Copiar</button>
+          <button id="btn-copy-code" style="padding: 4px 8px; font-size: 11px;">Copiar Link</button>
         </div>
         <div id="online-status-text" style="font-size: 12px; text-align: center; color: var(--text-muted);">
           Aguardando seu amigo conectar...
@@ -1413,6 +1413,18 @@ class ChessUI {
     this.render();
   }
 
+    // Auto-conectar se veio pelo link de convite
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteRoom = urlParams.get('sala');
+    if (inviteRoom) {
+      setTimeout(() => {
+        this.switchMode('online');
+        document.getElementById('input-room-code').value = inviteRoom;
+        this.joinOnlineRoom();
+      }, 500);
+    }
+  }
+
   initEventListeners() {
     document.getElementById('tab-solo').addEventListener('click', () => this.switchMode('solo'));
     document.getElementById('tab-online').addEventListener('click', () => this.switchMode('online'));
@@ -1443,10 +1455,11 @@ class ChessUI {
     document.getElementById('btn-join-room').addEventListener('click', () => this.joinOnlineRoom());
     document.getElementById('btn-copy-code').addEventListener('click', () => {
       if (this.roomCode) {
-        navigator.clipboard.writeText(this.roomCode);
+        const inviteUrl = 'https://tinyurl.com/xadrez-marcos?sala=' + this.roomCode;
+        navigator.clipboard.writeText(inviteUrl);
         const btn = document.getElementById('btn-copy-code');
-        btn.textContent = 'Copiado!';
-        setTimeout(() => btn.textContent = 'Copiar', 2000);
+        btn.textContent = 'Link Copiado!';
+        setTimeout(() => btn.textContent = 'Copiar Link', 2500);
       }
     });
     document.getElementById('btn-leave-online').addEventListener('click', () => this.leaveOnlineRoom());
