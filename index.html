@@ -1455,7 +1455,7 @@ class ChessUI {
     document.getElementById('btn-join-room').addEventListener('click', () => this.joinOnlineRoom());
     document.getElementById('btn-copy-code').addEventListener('click', () => {
       if (this.roomCode) {
-        const inviteUrl = 'https://tinyurl.com/xadrez-marcos?sala=' + this.roomCode;
+        const inviteUrl = 'https://tinyurl.com/xadrez-p2p?sala=' + this.roomCode;
         navigator.clipboard.writeText(inviteUrl);
         const btn = document.getElementById('btn-copy-code');
         btn.textContent = 'Link Copiado!';
