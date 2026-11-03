@@ -1,0 +1,1867 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xadrez - Rival Virtual</title>
+  <style>
+    :root {
+      --bg: #1e1e24;
+      --panel-bg: #2b2b36;
+      --panel-border: #3d3d4e;
+      --text: #f0f0f5;
+      --text-muted: #9e9eb3;
+      --accent: #4ade80;
+      --accent-hover: #22c55e;
+      --danger: #f87171;
+      --sq-light: #f0d9b5;
+      --sq-dark: #b58863;
+      --sq-selected: #7fc97f;
+      --sq-last-move: rgba(255, 255, 0, 0.4);
+      --sq-legal-dot: rgba(0, 0, 0, 0.25);
+      --sq-capture-ring: rgba(220, 38, 38, 0.5);
+      --sq-check: rgba(239, 68, 68, 0.7);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: row;
+      gap: 24px;
+      max-width: 1000px;
+      width: 100%;
+      align-items: flex-start;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* Tabuleiro */
+    .board-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .player-banner {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--panel-bg);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      border: 1px solid var(--panel-border);
+    }
+
+    .player-banner.bottom {
+      margin-top: 8px;
+      margin-bottom: 0;
+    }
+
+    .player-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .player-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .captured-pieces {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 13px;
+      min-height: 20px;
+    }
+
+    .captured-item {
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.85;
+    }
+
+    .score-diff {
+      font-weight: 600;
+      margin-left: 6px;
+      color: #fbbf24;
+      font-size: 12px;
+    }
+
+    .board-wrapper {
+      position: relative;
+      width: 520px;
+      height: 520px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 4px solid #33333e;
+    }
+
+    .chess-board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      width: 100%;
+      height: 100%;
+    }
+
+    .square {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .square.light { background-color: var(--sq-light); }
+    .square.dark { background-color: var(--sq-dark); }
+
+    .square.selected {
+      background-color: var(--sq-selected) !important;
+    }
+
+    .square.last-move {
+      box-shadow: inset 0 0 0 9999px var(--sq-last-move);
+    }
+
+    .square.in-check {
+      background-color: var(--sq-check) !important;
+    }
+
+    /* Indicador de lance legal */
+    .legal-dot {
+      position: absolute;
+      width: 28%;
+      height: 28%;
+      border-radius: 50%;
+      background-color: var(--sq-legal-dot);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .legal-capture {
+      position: absolute;
+      width: 82%;
+      height: 82%;
+      border-radius: 50%;
+      border: 6px solid var(--sq-capture-ring);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .piece {
+      width: 86%;
+      height: 86%;
+      z-index: 2;
+      pointer-events: none;
+      transition: transform 0.1s ease-out;
+    }
+
+    /* Coordenadas */
+    .coord {
+      position: absolute;
+      font-size: 11px;
+      font-weight: 700;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+    .coord-file { bottom: 2px; right: 4px; }
+    .coord-rank { top: 2px; left: 4px; }
+    .square.light .coord { color: var(--sq-dark); }
+    .square.dark .coord { color: var(--sq-light); }
+
+    /* Painel Lateral */
+    .sidebar {
+      width: 320px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .sidebar h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .status-badge {
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: #3a3a4d;
+      color: var(--text);
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .status-badge.your-turn {
+      background: rgba(74, 222, 128, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(74, 222, 128, 0.4);
+    }
+
+    .status-badge.bot-turn {
+      background: rgba(251, 191, 36, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, 0.4);
+    }
+
+    .status-badge.game-over {
+      background: rgba(248, 113, 113, 0.2);
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    /* Configurações do Rival */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    select, button {
+      background: #373747;
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    select:hover, button:hover {
+      background: #444457;
+      border-color: #55556d;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #0d2818;
+      font-weight: 600;
+      border: none;
+    }
+
+    button.primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    /* Histórico de Lances */
+    .moves-history {
+      background: #1e1e27;
+      border-radius: 8px;
+      height: 180px;
+      overflow-y: auto;
+      padding: 8px;
+      font-family: monospace;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border: 1px solid #333342;
+    }
+
+    .move-row {
+      display: grid;
+      grid-template-columns: 32px 1fr 1fr;
+      padding: 3px 6px;
+      border-radius: 4px;
+    }
+
+    .move-row:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .move-num {
+      color: var(--text-muted);
+    }
+
+    .move-cell {
+      cursor: default;
+    }
+
+    .move-cell.active {
+      color: var(--accent);
+      font-weight: bold;
+    }
+
+    /* Modal de Promoção */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: var(--panel-bg);
+      border: 2px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+    }
+
+    .promo-options {
+      display: flex;
+      gap: 12px;
+    }
+
+    .promo-piece-btn {
+      width: 64px;
+      height: 64px;
+      background: #373747;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      padding: 6px;
+    }
+
+    .promo-piece-btn:hover {
+      background: var(--sq-selected);
+      transform: scale(1.08);
+    }
+
+    @media (max-width: 880px) {
+      .container {
+        flex-direction: column;
+        align-items: center;
+      }
+      .board-wrapper {
+        width: 90vw;
+        height: 90vw;
+        max-width: 480px;
+        max-height: 480px;
+      }
+      .sidebar {
+        width: 90vw;
+        max-width: 480px;
+      }
+    }
+  
+    /* Abas de Modo Solo / Online */
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .mode-tab {
+      background: #252530;
+      color: var(--text-muted);
+      border: 1px solid var(--panel-border);
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .mode-tab:hover {
+      background: #323242;
+      color: var(--text);
+    }
+
+    .mode-tab.active {
+      background: #3b3b4f;
+      color: var(--accent);
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .mode-tab.active.online {
+      color: #38bdf8;
+      border-color: #38bdf8;
+    }
+
+    /* Painel Online */
+    .online-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    button.blue {
+      background: #0284c7;
+      color: #ffffff;
+      font-weight: 600;
+      border: none;
+    }
+
+    button.blue:hover {
+      background: #0369a1;
+    }
+
+    input[type="text"] {
+      background: #1e1e27;
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      border-color: #38bdf8;
+    }
+
+    .room-code-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #1e1e27;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px dashed #38bdf8;
+    }
+
+    .room-code-val {
+      font-family: monospace;
+      font-weight: bold;
+      font-size: 15px;
+      color: #38bdf8;
+      letter-spacing: 1px;
+    }
+
+    /* Inversão do tabuleiro para as Pretas */
+    .board-wrapper.flipped {
+      transform: rotate(180deg);
+    }
+    .board-wrapper.flipped .square {
+      transform: rotate(180deg);
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Área do Tabuleiro -->
+  <div class="board-container">
+    <!-- Banner do Oponente (Pretas) -->
+    <div class="player-banner">
+      <div class="player-info">
+        <div class="player-avatar" id="top-avatar" style="background: #334155;">🤖</div>
+        <div>
+          <strong id="top-name">Rival Virtual</strong>
+          <span style="color: var(--text-muted); font-size: 12px;" id="top-desc">(~800)</span>
+        </div>
+      </div>
+      <div class="captured-pieces" id="captured-by-top"></div>
+    </div>
+
+    <!-- Tabuleiro Físico -->
+    <div class="board-wrapper" id="board-wrapper">
+      <div class="chess-board" id="board"></div>
+
+      <!-- Modal de Promoção de Peão -->
+      <div class="modal-overlay" id="promo-modal">
+        <div class="modal-card">
+          <div style="font-weight: 600; font-size: 15px;">Escolha a Promoção</div>
+          <div class="promo-options" id="promo-options"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Banner do Jogador (Brancas) -->
+    <div class="player-banner bottom">
+      <div class="player-info">
+        <div class="player-avatar" id="bottom-avatar" style="background: #0284c7;">👤</div>
+        <div>
+          <strong id="bottom-name">Você</strong>
+          <span style="color: var(--text-muted); font-size: 12px;" id="bottom-desc">(Brancas)</span>
+        </div>
+      </div>
+      <div class="captured-pieces" id="captured-by-bottom"></div>
+    </div>
+  </div>
+
+  <!-- Painel Lateral -->
+  <div class="sidebar">
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tab-solo">🤖 Modo Solo</button>
+      <button class="mode-tab" id="tab-online">🌐 Jogar Online</button>
+    </div>
+    
+
+    <div class="status-badge your-turn" id="status-badge">Sua vez de jogar</div>
+
+    <div id="panel-solo" class="control-group">
+      <label for="difficulty">Nível do Rival</label>
+      <select id="difficulty">
+        <option value="600">Iniciante (~600) - Comete erros frequentes</option>
+        <option value="800" selected>Rival Casual (~800) - Ideal para treinar</option>
+        <option value="1100">Intermediário (~1100) - Tático e sólido</option>
+        <option value="1400">Desafiante (~1400) - Poucas falhas</option>
+      </select>
+    </div>
+
+    <div id="panel-online" class="online-panel" style="display: none;">
+      <div id="online-setup-box" style="display: flex; flex-direction: column; gap: 8px;">
+        <button class="blue" id="btn-create-room">Criar Sala (Jogar com Brancas)</button>
+        <div style="text-align: center; font-size: 11px; color: var(--text-muted);">- OU -</div>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="input-room-code" placeholder="Código da Sala" style="flex: 1; text-transform: uppercase;">
+          <button id="btn-join-room">Entrar</button>
+        </div>
+      </div>
+      <div id="online-connected-box" style="display: none; flex-direction: column; gap: 8px;">
+        <div class="room-code-box">
+          <span style="font-size: 12px; color: var(--text-muted);">CÓDIGO:</span>
+          <span class="room-code-val" id="room-code-display">---</span>
+          <button id="btn-copy-code" style="padding: 4px 8px; font-size: 11px;">Copiar</button>
+        </div>
+        <div id="online-status-text" style="font-size: 12px; text-align: center; color: var(--text-muted);">
+          Aguardando seu amigo conectar...
+        </div>
+        <button id="btn-leave-online" style="padding: 6px; font-size: 12px;">Sair da Sala Online</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label>Histórico da Partida</label>
+      <div class="moves-history" id="moves-history">
+        <div style="color: #6b7280; text-align: center; margin-top: 60px;">A partida começará com e4...</div>
+      </div>
+    </div>
+
+    <div class="button-row" id="solo-buttons">
+      <button id="btn-undo">↩ Voltar</button>
+      <button class="primary" id="btn-new">Nova Partida</button>
+    </div>
+  </div>
+</div>
+
+<script src="peerjs.min.js"></script>
+<script>
+/**
+ * Vector Pieces (SVGs clássicos)
+ */
+const PIECE_SVGS = {
+  w: {
+    k: `<svg viewBox="0 0 45 45" class="piece"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#fff" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V23v-2.5c-2.5-7.5-12-10.5-16-4-3 6 6 10.5 6 10.5v7z" fill="#fff"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></g></svg>`,
+    q: `<svg viewBox="0 0 45 45" class="piece"><g fill="#fff" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zm16.5-4.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM41 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM16 8.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zm17 0a2 2 0 1 1-4 0 2 2 0 1 1 4 0z"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12z" stroke-linecap="butt"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 2-1 .5-2.5 0 0 0-1.5-1.5-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/><path d="M11 38.5a35 35 1 0 0 23 0" fill="none"/><path d="M11 29a35 35 1 0 1 23 0M12.5 31.5h20M11.5 34.5a35 35 1 0 0 22 0M10.5 37.5a35 35 1 0 0 24 0" fill="none"/></g></svg>`,
+    r: `<svg viewBox="0 0 45 45" class="piece"><g fill="#fff" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zm3-3v-4.5h21V36H12zm2-4.5v-13h17v13H14z" stroke-linecap="butt"/><path d="M14 18.5l-2-5.5h21l-2 5.5H14zM11 13h23v-4h-4v2h-4v-2h-5v2h-4v-2h-6v4z" stroke-linecap="butt"/><path d="M12 35.5h21M13 31.5h19M14 29.5h17M14 18.5h17M12 13h21" fill="none"/></g></svg>`,
+    b: `<svg viewBox="0 0 45 45" class="piece"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><g fill="#fff" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.35.49-2.32.47-3-.5 1.35-1.46 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke-linejoin="miter"/></g></svg>`,
+    n: `<svg viewBox="0 0 45 45" class="piece"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21" fill="#fff"/><path d="M24 18c.38 2.91-5.55 7.37-8 9-3 2-2.82 4.34-5 4-1.042-.94 1.41-3.04 0-3-1 0-.632 1.2-1 2.5-.323 1.14-1.014 2.2-2 2.5-1.677-.08-2.613-1.6-2-4.5 1-4.5 3.5-7 6-8.5 2.25-1.35 4-10.5 12-1.5z" fill="#fff"/><circle cx="9.5" cy="25.5" r=".5" fill="#000"/><circle cx="15" cy="15.5" r="1" fill="#000"/></g></svg>`,
+    p: `<svg viewBox="0 0 45 45" class="piece"><path d="M22 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38-1.95 1.12-3.28 3.21-3.28 5.62 0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h25c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#fff" stroke="#000" stroke-width="1.5" stroke-linecap="round"/></svg>`
+  },
+  b: {
+    k: `<svg viewBox="0 0 45 45" class="piece"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#000" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V23v-2.5c-2.5-7.5-12-10.5-16-4-3 6 6 10.5 6 10.5v7z" fill="#000"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0" stroke="#fff"/></g></svg>`,
+    q: `<svg viewBox="0 0 45 45" class="piece"><g fill="#000" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zm16.5-4.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM41 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM16 8.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zm17 0a2 2 0 1 1-4 0 2 2 0 1 1 4 0z"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12z" stroke-linecap="butt"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 2-1 .5-2.5 0 0 0-1.5-1.5-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/><path d="M11 38.5a35 35 1 0 0 23 0" fill="none" stroke="#fff"/><path d="M11 29a35 35 1 0 1 23 0M12.5 31.5h20M11.5 34.5a35 35 1 0 0 22 0M10.5 37.5a35 35 1 0 0 24 0" fill="none" stroke="#fff"/></g></svg>`,
+    r: `<svg viewBox="0 0 45 45" class="piece"><g fill="#000" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zm3-3v-4.5h21V36H12zm2-4.5v-13h17v13H14z" stroke-linecap="butt"/><path d="M14 18.5l-2-5.5h21l-2 5.5H14zM11 13h23v-4h-4v2h-4v-2h-5v2h-4v-2h-6v4z" stroke-linecap="butt"/><path d="M12 35.5h21M13 31.5h19M14 29.5h17M14 18.5h17M12 13h21" fill="none" stroke="#fff"/></g></svg>`,
+    b: `<svg viewBox="0 0 45 45" class="piece"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><g fill="#000" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.35.49-2.32.47-3-.5 1.35-1.46 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke="#fff" stroke-linejoin="miter"/></g></svg>`,
+    n: `<svg viewBox="0 0 45 45" class="piece"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21" fill="#000"/><path d="M24 18c.38 2.91-5.55 7.37-8 9-3 2-2.82 4.34-5 4-1.042-.94 1.41-3.04 0-3-1 0-.632 1.2-1 2.5-.323 1.14-1.014 2.2-2 2.5-1.677-.08-2.613-1.6-2-4.5 1-4.5 3.5-7 6-8.5 2.25-1.35 4-10.5 12-1.5z" fill="#000"/><circle cx="9.5" cy="25.5" r=".5" fill="#fff"/><circle cx="15" cy="15.5" r="1" fill="#fff"/></g></svg>`,
+    p: `<svg viewBox="0 0 45 45" class="piece"><path d="M22 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38-1.95 1.12-3.28 3.21-3.28 5.62 0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h25c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#000" stroke="#000" stroke-width="1.5" stroke-linecap="round"/></svg>`
+  }
+};
+
+/**
+ * Efeitos Sonoros com Web Audio API
+ */
+class SoundEngine {
+  constructor() {
+    this.ctx = null;
+  }
+  init() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  }
+  play(type) {
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      const now = this.ctx.currentTime;
+
+      if (type === 'move') {
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.08);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      } else if (type === 'capture') {
+        osc.frequency.setValueAtTime(450, now);
+        osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'check') {
+        osc.frequency.setValueAtTime(550, now);
+        osc.frequency.linearRampToValueAtTime(800, now + 0.15);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      }
+    } catch (e) {}
+  }
+}
+const sounds = new SoundEngine();
+
+/**
+ * Motor do Jogo de Xadrez (Regras Completas)
+ */
+class ChessGame {
+  constructor() {
+    this.reset();
+  }
+
+  reset() {
+    // 8x8: row 0 é rank 8 (pretas), row 7 é rank 1 (brancas)
+    this.board = [
+      ['br','bn','bb','bq','bk','bb','bn','br'],
+      ['bp','bp','bp','bp','bp','bp','bp','bp'],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      ['wp','wp','wp','wp','wp','wp','wp','wp'],
+      ['wr','wn','wb','wq','wk','wb','wn','wr']
+    ];
+    this.turn = 'w';
+    this.castling = {
+      w: { k: true, q: true },
+      b: { k: true, q: true }
+    };
+    this.enPassant = null; // { r, c }
+    this.halfMoves = 0;
+    this.fullMoves = 1;
+    this.history = [];
+    this.captured = { w: [], b: [] }; // peças capturadas por cada lado
+    this.lastMove = null; // { from, to }
+    this.gameOver = false;
+    this.result = null;
+  }
+
+  cloneState() {
+    return {
+      board: this.board.map(r => [...r]),
+      turn: this.turn,
+      castling: {
+        w: { ...this.castling.w },
+        b: { ...this.castling.b }
+      },
+      enPassant: this.enPassant ? { ...this.enPassant } : null,
+      halfMoves: this.halfMoves,
+      fullMoves: this.fullMoves,
+      captured: { w: [...this.captured.w], b: [...this.captured.b] },
+      lastMove: this.lastMove ? { from: {...this.lastMove.from}, to: {...this.lastMove.to} } : null,
+      gameOver: this.gameOver,
+      result: this.result
+    };
+  }
+
+  restoreState(s) {
+    this.board = s.board.map(r => [...r]);
+    this.turn = s.turn;
+    this.castling = {
+      w: { ...s.castling.w },
+      b: { ...s.castling.b }
+    };
+    this.enPassant = s.enPassant ? { ...s.enPassant } : null;
+    this.halfMoves = s.halfMoves;
+    this.fullMoves = s.fullMoves;
+    this.captured = { w: [...s.captured.w], b: [...s.captured.b] };
+    this.lastMove = s.lastMove ? { from: {...s.lastMove.from}, to: {...s.lastMove.to} } : null;
+    this.gameOver = s.gameOver;
+    this.result = s.result;
+  }
+
+  getPiece(r, c) {
+    if (r < 0 || r > 7 || c < 0 || c > 7) return null;
+    return this.board[r][c];
+  }
+
+  isSquareAttacked(r, c, attackerColor) {
+    // 1. Peões
+    const pDir = attackerColor === 'w' ? 1 : -1;
+    const pr = r + pDir;
+    for (let dc of [-1, 1]) {
+      const pc = c + dc;
+      if (pr >= 0 && pr <= 7 && pc >= 0 && pc <= 7) {
+        const p = this.board[pr][pc];
+        if (p === attackerColor + 'p') return true;
+      }
+    }
+
+    // 2. Cavalos
+    const knightOffsets = [
+      [-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]
+    ];
+    for (let [dr, dc] of knightOffsets) {
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr <= 7 && nc >= 0 && nc <= 7) {
+        if (this.board[nr][nc] === attackerColor + 'n') return true;
+      }
+    }
+
+    // 3. Rei
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const kr = r + dr, kc = c + dc;
+        if (kr >= 0 && kr <= 7 && kc >= 0 && kc <= 7) {
+          if (this.board[kr][kc] === attackerColor + 'k') return true;
+        }
+      }
+    }
+
+    // 4. Linhas retas (Torres e Damas)
+    const straightDirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    for (let [dr, dc] of straightDirs) {
+      let cr = r + dr, cc = c + dc;
+      while (cr >= 0 && cr <= 7 && cc >= 0 && cc <= 7) {
+        const p = this.board[cr][cc];
+        if (p) {
+          if (p === attackerColor + 'r' || p === attackerColor + 'q') return true;
+          break;
+        }
+        cr += dr;
+        cc += dc;
+      }
+    }
+
+    // 5. Diagonais (Bispos e Damas)
+    const diagDirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+    for (let [dr, dc] of diagDirs) {
+      let cr = r + dr, cc = c + dc;
+      while (cr >= 0 && cr <= 7 && cc >= 0 && cc <= 7) {
+        const p = this.board[cr][cc];
+        if (p) {
+          if (p === attackerColor + 'b' || p === attackerColor + 'q') return true;
+          break;
+        }
+        cr += dr;
+        cc += dc;
+      }
+    }
+
+    return false;
+  }
+
+  findKing(color) {
+    const target = color + 'k';
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (this.board[r][c] === target) return { r, c };
+      }
+    }
+    return null;
+  }
+
+  isInCheck(color) {
+    const king = this.findKing(color);
+    if (!king) return false;
+    const opp = color === 'w' ? 'b' : 'w';
+    return this.isSquareAttacked(king.r, king.c, opp);
+  }
+
+  // Gera todos os lances pseudo-legais
+  getPseudoMoves(color) {
+    const moves = [];
+    const opp = color === 'w' ? 'b' : 'w';
+
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = this.board[r][c];
+        if (!p || p[0] !== color) continue;
+        const type = p[1];
+
+        if (type === 'p') {
+          const dir = color === 'w' ? -1 : 1;
+          const startRow = color === 'w' ? 6 : 1;
+          const promoRow = color === 'w' ? 0 : 7;
+
+          // Avanço simples
+          const nr = r + dir;
+          if (nr >= 0 && nr <= 7 && !this.board[nr][c]) {
+            if (nr === promoRow) {
+              for (let promo of ['q', 'r', 'b', 'n']) {
+                moves.push({ from: { r, c }, to: { r: nr, c }, promo });
+              }
+            } else {
+              moves.push({ from: { r, c }, to: { r: nr, c } });
+              // Avanço duplo
+              const nnr = r + dir * 2;
+              if (r === startRow && !this.board[nnr][c]) {
+                moves.push({ from: { r, c }, to: { r: nnr, c }, doublePawn: true });
+              }
+            }
+          }
+
+          // Capturas diagonais
+          for (let dc of [-1, 1]) {
+            const nc = c + dc;
+            if (nr >= 0 && nr <= 7 && nc >= 0 && nc <= 7) {
+              const target = this.board[nr][nc];
+              if (target && target[0] === opp) {
+                if (nr === promoRow) {
+                  for (let promo of ['q', 'r', 'b', 'n']) {
+                    moves.push({ from: { r, c }, to: { r: nr, c: nc }, promo, capture: target });
+                  }
+                } else {
+                  moves.push({ from: { r, c }, to: { r: nr, c: nc }, capture: target });
+                }
+              } else if (this.enPassant && this.enPassant.r === nr && this.enPassant.c === nc) {
+                // En Passant
+                moves.push({ from: { r, c }, to: { r: nr, c: nc }, isEnPassant: true, capture: opp + 'p' });
+              }
+            }
+          }
+        } else if (type === 'n') {
+          const knightOffsets = [
+            [-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]
+          ];
+          for (let [dr, dc] of knightOffsets) {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr <= 7 && nc >= 0 && nc <= 7) {
+              const target = this.board[nr][nc];
+              if (!target || target[0] === opp) {
+                moves.push({ from: { r, c }, to: { r: nr, c: nc }, capture: target });
+              }
+            }
+          }
+        } else if (type === 'k') {
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) continue;
+              const nr = r + dr, nc = c + dc;
+              if (nr >= 0 && nr <= 7 && nc >= 0 && nc <= 7) {
+                const target = this.board[nr][nc];
+                if (!target || target[0] === opp) {
+                  moves.push({ from: { r, c }, to: { r: nr, c: nc }, capture: target });
+                }
+              }
+            }
+          }
+
+          // Roques
+          if (!this.isInCheck(color)) {
+            const row = color === 'w' ? 7 : 0;
+            if (r === row && c === 4) {
+              // Roque menor (ala do rei)
+              if (this.castling[color].k && !this.board[row][5] && !this.board[row][6] && this.board[row][7] === color + 'r') {
+                if (!this.isSquareAttacked(row, 5, opp) && !this.isSquareAttacked(row, 6, opp)) {
+                  moves.push({ from: { r, c }, to: { r: row, c: 6 }, isCastleK: true });
+                }
+              }
+              // Roque maior (ala da dama)
+              if (this.castling[color].q && !this.board[row][3] && !this.board[row][2] && !this.board[row][1] && this.board[row][0] === color + 'r') {
+                if (!this.isSquareAttacked(row, 3, opp) && !this.isSquareAttacked(row, 2, opp)) {
+                  moves.push({ from: { r, c }, to: { r: row, c: 2 }, isCastleQ: true });
+                }
+              }
+            }
+          }
+        } else {
+          // Torre, Bispo ou Dama
+          const dirs = [];
+          if (type === 'r' || type === 'q') dirs.push([-1,0],[1,0],[0,-1],[0,1]);
+          if (type === 'b' || type === 'q') dirs.push([-1,-1],[-1,1],[1,-1],[1,1]);
+
+          for (let [dr, dc] of dirs) {
+            let nr = r + dr, nc = c + dc;
+            while (nr >= 0 && nr <= 7 && nc >= 0 && nc <= 7) {
+              const target = this.board[nr][nc];
+              if (!target) {
+                moves.push({ from: { r, c }, to: { r: nr, c: nc } });
+              } else {
+                if (target[0] === opp) {
+                  moves.push({ from: { r, c }, to: { r: nr, c: nc }, capture: target });
+                }
+                break;
+              }
+              nr += dr;
+              nc += dc;
+            }
+          }
+        }
+      }
+    }
+    return moves;
+  }
+
+  // Executa um lance bruto (para teste ou oficial)
+  applyMoveRaw(m) {
+    const piece = this.board[m.from.r][m.from.c];
+    const color = piece[0];
+
+    // Salvar estado pré-lance
+    const prevState = {
+      capturedPiece: this.board[m.to.r][m.to.c],
+      enPassant: this.enPassant ? { ...this.enPassant } : null,
+      castling: { w: { ...this.castling.w }, b: { ...this.castling.b } },
+      halfMoves: this.halfMoves,
+      lastMove: this.lastMove
+    };
+
+    // Atualiza tabuleiro
+    this.board[m.to.r][m.to.c] = piece;
+    this.board[m.from.r][m.from.c] = null;
+
+    // Roque
+    if (m.isCastleK) {
+      const row = m.to.r;
+      this.board[row][5] = color + 'r';
+      this.board[row][7] = null;
+    } else if (m.isCastleQ) {
+      const row = m.to.r;
+      this.board[row][3] = color + 'r';
+      this.board[row][0] = null;
+    }
+
+    // En Passant
+    if (m.isEnPassant) {
+      const capRow = color === 'w' ? m.to.r + 1 : m.to.r - 1;
+      this.board[capRow][m.to.c] = null;
+    }
+
+    // Promoção
+    if (m.promo) {
+      this.board[m.to.r][m.to.c] = color + m.promo;
+    }
+
+    // Direitos de roque
+    if (piece === 'wk') this.castling.w.k = this.castling.w.q = false;
+    if (piece === 'bk') this.castling.b.k = this.castling.b.q = false;
+    if (piece === 'wr') {
+      if (m.from.r === 7 && m.from.c === 0) this.castling.w.q = false;
+      if (m.from.r === 7 && m.from.c === 7) this.castling.w.k = false;
+    }
+    if (piece === 'br') {
+      if (m.from.r === 0 && m.from.c === 0) this.castling.b.q = false;
+      if (m.from.r === 0 && m.from.c === 7) this.castling.b.k = false;
+    }
+    // Se uma torre adversária for capturada no seu canto inicial
+    if (m.to.r === 0 && m.to.c === 0) this.castling.b.q = false;
+    if (m.to.r === 0 && m.to.c === 7) this.castling.b.k = false;
+    if (m.to.r === 7 && m.to.c === 0) this.castling.w.q = false;
+    if (m.to.r === 7 && m.to.c === 7) this.castling.w.k = false;
+
+    // Novo alvo de En Passant
+    if (m.doublePawn) {
+      const midRow = (m.from.r + m.to.r) / 2;
+      this.enPassant = { r: midRow, c: m.from.c };
+    } else {
+      this.enPassant = null;
+    }
+
+    return prevState;
+  }
+
+  undoMoveRaw(m, prevState) {
+    const piece = this.board[m.to.r][m.to.c];
+    const color = piece[0];
+
+    let origPiece = piece;
+    if (m.promo) {
+      origPiece = color + 'p';
+    }
+
+    this.board[m.from.r][m.from.c] = origPiece;
+    this.board[m.to.r][m.to.c] = prevState.capturedPiece;
+
+    if (m.isCastleK) {
+      const row = m.to.r;
+      this.board[row][7] = color + 'r';
+      this.board[row][5] = null;
+    } else if (m.isCastleQ) {
+      const row = m.to.r;
+      this.board[row][0] = color + 'r';
+      this.board[row][3] = null;
+    }
+
+    if (m.isEnPassant) {
+      const capRow = color === 'w' ? m.to.r + 1 : m.to.r - 1;
+      const opp = color === 'w' ? 'b' : 'w';
+      this.board[capRow][m.to.c] = opp + 'p';
+      this.board[m.to.r][m.to.c] = null;
+    }
+
+    this.enPassant = prevState.enPassant;
+    this.castling = prevState.castling;
+    this.halfMoves = prevState.halfMoves;
+    this.lastMove = prevState.lastMove;
+  }
+
+  // Gera apenas lances estritamente LEGAIS
+  getLegalMoves(color = this.turn) {
+    const pseudos = this.getPseudoMoves(color);
+    const legals = [];
+
+    for (let m of pseudos) {
+      const prev = this.applyMoveRaw(m);
+      if (!this.isInCheck(color)) {
+        legals.push(m);
+      }
+      this.undoMoveRaw(m, prev);
+    }
+    return legals;
+  }
+
+  // Executa o lance na partida oficial
+  makeMove(m) {
+    const piece = this.board[m.from.r][m.from.c];
+    const color = this.turn;
+    const opp = color === 'w' ? 'b' : 'w';
+
+    // Salvar estado histórico para botão "Voltar"
+    this.history.push(this.cloneState());
+
+    // Se houve captura, registra nas peças capturadas
+    let capturedPiece = this.board[m.to.r][m.to.c];
+    if (m.isEnPassant) capturedPiece = opp + 'p';
+    if (capturedPiece) {
+      this.captured[color].push(capturedPiece[1]);
+      sounds.play('capture');
+    } else {
+      sounds.play('move');
+    }
+
+    // Notação algébrica do lance
+    const san = this.moveToSan(m, piece, capturedPiece);
+
+    // Aplica lance
+    this.applyMoveRaw(m);
+    this.lastMove = { from: { ...m.from }, to: { ...m.to }, san };
+
+    // Troca de turno
+    this.turn = opp;
+    if (color === 'b') this.fullMoves++;
+
+    // Verifica xeque / xeque-mate / empate
+    const inCheck = this.isInCheck(opp);
+    const oppMoves = this.getLegalMoves(opp);
+
+    if (oppMoves.length === 0) {
+      this.gameOver = true;
+      if (inCheck) {
+        this.result = { winner: color, reason: 'Xeque-mate' };
+      } else {
+        this.result = { winner: null, reason: 'Afogamento (Empate)' };
+      }
+    } else if (inCheck) {
+      sounds.play('check');
+    }
+
+    return san;
+  }
+
+  undo() {
+    if (this.history.length === 0) return false;
+    const last = this.history.pop();
+    this.restoreState(last);
+    return true;
+  }
+
+  moveToSan(m, piece, captured) {
+    if (m.isCastleK) return 'O-O';
+    if (m.isCastleQ) return 'O-O-O';
+
+    const files = 'abcdefgh';
+    const ranks = '87654321';
+    const pType = piece[1].toUpperCase();
+
+    let str = '';
+    if (pType !== 'P') {
+      str += pType;
+    } else if (captured) {
+      str += files[m.from.c];
+    }
+
+    if (captured) str += 'x';
+    str += files[m.to.c] + ranks[m.to.r];
+
+    if (m.promo) {
+      str += '=' + m.promo.toUpperCase();
+    }
+
+    return str;
+  }
+}
+
+/**
+ * Inteligência Artificial (Oponente Virtual)
+ * Rating ajustável: ~600, ~800, ~1100, ~1400
+ */
+class ChessAI {
+  constructor(game) {
+    this.game = game;
+
+    // Valores básicos das peças
+    this.pieceValues = {
+      p: 100,
+      n: 320,
+      b: 330,
+      r: 500,
+      q: 900,
+      k: 20000
+    };
+
+    // Tabelas de valor posicional (Piece-Square Tables)
+    this.pst = {
+      p: [
+        [0,  0,  0,  0,  0,  0,  0,  0],
+        [50, 50, 50, 50, 50, 50, 50, 50],
+        [10, 10, 20, 30, 30, 20, 10, 10],
+        [5,  5, 10, 25, 25, 10,  5,  5],
+        [0,  0,  0, 20, 20,  0,  0,  0],
+        [5, -5,-10,  0,  0,-10, -5,  5],
+        [5, 10, 10,-20,-20, 10, 10,  5],
+        [0,  0,  0,  0,  0,  0,  0,  0]
+      ],
+      n: [
+        [-50,-40,-30,-30,-30,-30,-40,-50],
+        [-40,-20,  0,  0,  0,  0,-20,-40],
+        [-30,  0, 10, 15, 15, 10,  0,-30],
+        [-30,  5, 15, 20, 20, 15,  5,-30],
+        [-30,  0, 15, 20, 20, 15,  0,-30],
+        [-30,  5, 10, 15, 15, 10,  5,-30],
+        [-40,-20,  0,  5,  5,  0,-20,-40],
+        [-50,-40,-30,-30,-30,-30,-40,-50]
+      ],
+      b: [
+        [-20,-10,-10,-10,-10,-10,-10,-20],
+        [-10,  0,  0,  0,  0,  0,  0,-10],
+        [-10,  0,  5, 10, 10,  5,  0,-10],
+        [-10,  5,  5, 10, 10,  5,  5,-10],
+        [-10,  0, 10, 10, 10, 10,  0,-10],
+        [-10, 10, 10, 10, 10, 10, 10,-10],
+        [-10,  5,  0,  0,  0,  0,  5,-10],
+        [-20,-10,-10,-10,-10,-10,-10,-20]
+      ],
+      r: [
+        [0,  0,  0,  0,  0,  0,  0,  0],
+        [5, 10, 10, 10, 10, 10, 10,  5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [0,  0,  0,  5,  5,  0,  0,  0]
+      ],
+      q: [
+        [-20,-10,-10, -5, -5,-10,-10,-20],
+        [-10,  0,  0,  0,  0,  0,  0,-10],
+        [-10,  0,  5,  5,  5,  5,  0,-10],
+        [-5,  0,  5,  5,  5,  5,  0, -5],
+        [0,  0,  5,  5,  5,  5,  0, -5],
+        [-10,  5,  5,  5,  5,  5,  0,-10],
+        [-10,  0,  5,  0,  0,  0,  0,-10],
+        [-20,-10,-10, -5, -5,-10,-10,-20]
+      ],
+      k: [
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-20,-30,-30,-40,-40,-30,-20,-20],
+        [-10,-20,-20,-20,-20,-20,-10,-10],
+        [20, 20,  0,  0,  0,  0, 20, 20],
+        [20, 30, 10,  0,  0, 10, 30, 20]
+      ]
+    };
+  }
+
+  evaluateBoard(game) {
+    let score = 0;
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = game.board[r][c];
+        if (!p) continue;
+        const color = p[0];
+        const type = p[1];
+        const val = this.pieceValues[type];
+
+        // PST ajustado por cor
+        const pstRow = color === 'w' ? r : 7 - r;
+        const pstVal = this.pst[type] ? this.pst[type][pstRow][c] : 0;
+
+        const totalPieceScore = val + pstVal;
+        if (color === 'w') {
+          score += totalPieceScore;
+        } else {
+          score -= totalPieceScore;
+        }
+      }
+    }
+    return score;
+  }
+
+  minimax(depth, alpha, beta, isMaximizing) {
+    if (depth === 0) {
+      return this.evaluateBoard(this.game);
+    }
+
+    const color = isMaximizing ? 'w' : 'b';
+    const moves = this.game.getLegalMoves(color);
+
+    if (moves.length === 0) {
+      if (this.game.isInCheck(color)) {
+        return isMaximizing ? -99999 + (10 - depth) : 99999 - (10 - depth);
+      }
+      return 0; // empate
+    }
+
+    if (isMaximizing) {
+      let maxEval = -Infinity;
+      for (let m of moves) {
+        const prev = this.game.applyMoveRaw(m);
+        const evalVal = this.minimax(depth - 1, alpha, beta, false);
+        this.game.undoMoveRaw(m, prev);
+        maxEval = Math.max(maxEval, evalVal);
+        alpha = Math.max(alpha, evalVal);
+        if (beta <= alpha) break;
+      }
+      return maxEval;
+    } else {
+      let minEval = Infinity;
+      for (let m of moves) {
+        const prev = this.game.applyMoveRaw(m);
+        const evalVal = this.minimax(depth - 1, alpha, beta, true);
+        this.game.undoMoveRaw(m, prev);
+        minEval = Math.min(minEval, evalVal);
+        beta = Math.min(beta, evalVal);
+        if (beta <= alpha) break;
+      }
+      return minEval;
+    }
+  }
+
+  getBestMove(rating = 800) {
+    const moves = this.game.getLegalMoves('b');
+    if (moves.length === 0) return null;
+
+    // Avalia todos os lances possíveis
+    const evaluatedMoves = [];
+    const depth = rating >= 1400 ? 3 : (rating >= 1100 ? 2 : 2);
+
+    for (let m of moves) {
+      const prev = this.game.applyMoveRaw(m);
+      const score = this.minimax(depth - 1, -Infinity, Infinity, true);
+      this.game.undoMoveRaw(m, prev);
+      evaluatedMoves.push({ move: m, score });
+    }
+
+    // Ordena do melhor para as pretas (menor score) para o pior
+    evaluatedMoves.sort((a, b) => a.score - b.score);
+
+    // Simulação do Rating:
+    // No xadrez amador (~800), o jogador:
+    // 1. Muitas vezes joga o melhor ou 2º melhor lance (desenvolvimento, captura óbvia).
+    // 2. Em ~25-35% das vezes, comete uma imprecisão ou joga um lance subótimo.
+    const rand = Math.random();
+
+    if (rating <= 600) {
+      // 50% de chance de pegar lance aleatório entre os primeiros
+      if (rand < 0.5 && evaluatedMoves.length > 1) {
+        const idx = Math.floor(Math.random() * Math.min(evaluatedMoves.length, 5));
+        return evaluatedMoves[idx].move;
+      }
+      return evaluatedMoves[0].move;
+    }
+
+    if (rating <= 800) {
+      // Rating 800 clássico:
+      // 65%: Melhor lance
+      // 25%: Segundo ou terceiro melhor lance
+      // 10%: Lance casual (gafe amadora leve)
+      if (rand < 0.65 || evaluatedMoves.length === 1) {
+        return evaluatedMoves[0].move;
+      } else if (rand < 0.90 && evaluatedMoves.length >= 2) {
+        const idx = Math.min(evaluatedMoves.length - 1, 1 + Math.floor(Math.random() * 2));
+        return evaluatedMoves[idx].move;
+      } else {
+        const pool = Math.min(evaluatedMoves.length, 4);
+        const idx = Math.floor(Math.random() * pool);
+        return evaluatedMoves[idx].move;
+      }
+    }
+
+    if (rating <= 1100) {
+      // Intermediário: 85% melhor lance
+      if (rand < 0.85 || evaluatedMoves.length === 1) {
+        return evaluatedMoves[0].move;
+      } else {
+        return evaluatedMoves[1].move;
+      }
+    }
+
+    // 1400: Sempre o melhor lance calculado
+    return evaluatedMoves[0].move;
+  }
+}
+
+/**
+ * Interface do Usuário (UI Controller)
+ */
+class ChessUI {
+  constructor() {
+    this.game = new ChessGame();
+    this.ai = new ChessAI(this.game);
+    this.selectedSquare = null;
+    this.legalMovesForSelected = [];
+    this.pendingMove = null;
+
+    this.mode = 'solo';
+    this.myColor = 'w';
+    this.peer = null;
+    this.conn = null;
+    this.roomCode = null;
+
+    this.boardEl = document.getElementById('board');
+    this.boardWrapper = document.getElementById('board-wrapper');
+    this.historyEl = document.getElementById('moves-history');
+    this.statusBadgeEl = document.getElementById('status-badge');
+    this.diffSelect = document.getElementById('difficulty');
+    this.capByTopEl = document.getElementById('captured-by-top');
+    this.capByBottomEl = document.getElementById('captured-by-bottom');
+    this.topName = document.getElementById('top-name');
+    this.topDesc = document.getElementById('top-desc');
+    this.topAvatar = document.getElementById('top-avatar');
+    this.bottomName = document.getElementById('bottom-name');
+    this.bottomDesc = document.getElementById('bottom-desc');
+    this.bottomAvatar = document.getElementById('bottom-avatar');
+
+    this.initEventListeners();
+    this.render();
+  }
+
+  initEventListeners() {
+    document.getElementById('tab-solo').addEventListener('click', () => this.switchMode('solo'));
+    document.getElementById('tab-online').addEventListener('click', () => this.switchMode('online'));
+
+    document.getElementById('btn-new').addEventListener('click', () => {
+      this.game.reset();
+      this.selectedSquare = null;
+      this.legalMovesForSelected = [];
+      this.render();
+    });
+
+    document.getElementById('btn-undo').addEventListener('click', () => {
+      if (this.mode === 'online' || this.game.turn === 'b') return;
+      this.game.undo();
+      this.game.undo();
+      this.selectedSquare = null;
+      this.legalMovesForSelected = [];
+      this.render();
+    });
+
+    this.diffSelect.addEventListener('change', (e) => {
+      if (this.mode === 'solo') {
+        this.topDesc.textContent = `(~${e.target.value})`;
+      }
+    });
+
+    document.getElementById('btn-create-room').addEventListener('click', () => this.createOnlineRoom());
+    document.getElementById('btn-join-room').addEventListener('click', () => this.joinOnlineRoom());
+    document.getElementById('btn-copy-code').addEventListener('click', () => {
+      if (this.roomCode) {
+        navigator.clipboard.writeText(this.roomCode);
+        const btn = document.getElementById('btn-copy-code');
+        btn.textContent = 'Copiado!';
+        setTimeout(() => btn.textContent = 'Copiar', 2000);
+      }
+    });
+    document.getElementById('btn-leave-online').addEventListener('click', () => this.leaveOnlineRoom());
+  }
+
+  switchMode(newMode) {
+    this.mode = newMode;
+    const tabSolo = document.getElementById('tab-solo');
+    const tabOnline = document.getElementById('tab-online');
+    const panelSolo = document.getElementById('panel-solo');
+    const panelOnline = document.getElementById('panel-online');
+    const soloButtons = document.getElementById('solo-buttons');
+
+    if (newMode === 'solo') {
+      tabSolo.className = 'mode-tab active';
+      tabOnline.className = 'mode-tab';
+      panelSolo.style.display = 'flex';
+      panelOnline.style.display = 'none';
+      soloButtons.style.display = 'grid';
+      this.myColor = 'w';
+      this.boardWrapper.classList.remove('flipped');
+      this.topName.textContent = 'Rival Virtual';
+      this.topDesc.textContent = `(~${this.diffSelect.value})`;
+      this.topAvatar.textContent = '🤖';
+      this.bottomName.textContent = 'Você';
+      this.bottomDesc.textContent = '(Brancas)';
+      this.bottomAvatar.textContent = '👤';
+      if (this.conn) this.leaveOnlineRoom();
+    } else {
+      tabSolo.className = 'mode-tab';
+      tabOnline.className = 'mode-tab active online';
+      panelSolo.style.display = 'none';
+      panelOnline.style.display = 'flex';
+      soloButtons.style.display = 'none';
+    }
+    this.render();
+  }
+
+  createOnlineRoom() {
+    const rawCode = Math.floor(1000 + Math.random() * 9000);
+    this.roomCode = 'XAD-' + rawCode;
+    const peerId = 'xadrez-room-' + rawCode;
+
+    this.showOnlineConnecting('Conectando ao servidor em nuvem...');
+
+    try {
+      this.peer = new Peer(peerId);
+      this.peer.on('open', (id) => {
+        this.myColor = 'w';
+        this.boardWrapper.classList.remove('flipped');
+        this.showOnlineConnected(this.roomCode, 'Aguardando seu amigo entrar...');
+        this.topName.textContent = 'Adversário Online';
+        this.topDesc.textContent = '(Pretas)';
+        this.topAvatar.textContent = '⏳';
+        this.bottomName.textContent = 'Você';
+        this.bottomDesc.textContent = '(Brancas)';
+        this.bottomAvatar.textContent = '👤';
+      });
+
+      this.peer.on('connection', (c) => {
+        this.conn = c;
+        this.setupConnectionHandlers();
+        document.getElementById('online-status-text').innerHTML = '<span style="color: var(--accent); font-weight: bold;">● Amigo Conectado! Boa partida.</span>';
+        this.topAvatar.textContent = '👤';
+        this.game.reset();
+        this.render();
+      });
+
+      this.peer.on('error', (err) => {
+        alert('Erro ao criar sala: ' + err.type + '. Tente novamente.');
+        this.leaveOnlineRoom();
+      });
+    } catch (e) {
+      alert('Falha ao inicializar conexão: ' + e);
+    }
+  }
+
+  joinOnlineRoom() {
+    let inputVal = document.getElementById('input-room-code').value.trim().toUpperCase();
+    if (!inputVal) {
+      alert('Digite o código da sala!');
+      return;
+    }
+    if (!inputVal.startsWith('XAD-')) inputVal = 'XAD-' + inputVal;
+    const rawCode = inputVal.replace('XAD-', '');
+    const targetPeerId = 'xadrez-room-' + rawCode;
+    this.roomCode = inputVal;
+
+    this.showOnlineConnecting('Conectando à sala ' + inputVal + '...');
+
+    try {
+      this.peer = new Peer();
+      this.peer.on('open', () => {
+        this.conn = this.peer.connect(targetPeerId);
+        this.setupConnectionHandlers();
+        this.myColor = 'b';
+        this.boardWrapper.classList.add('flipped');
+        this.topName.textContent = 'Adversário Online (Host)';
+        this.topDesc.textContent = '(Brancas)';
+        this.topAvatar.textContent = '👤';
+        this.bottomName.textContent = 'Você';
+        this.bottomDesc.textContent = '(Pretas)';
+        this.bottomAvatar.textContent = '👤';
+        this.showOnlineConnected(this.roomCode, 'Conectado! Partida iniciada.');
+        this.game.reset();
+        this.render();
+      });
+
+      this.peer.on('error', (err) => {
+        alert('Não foi possível conectar à sala: ' + err.type);
+        this.leaveOnlineRoom();
+      });
+    } catch (e) {
+      alert('Falha ao conectar: ' + e);
+    }
+  }
+
+  setupConnectionHandlers() {
+    this.conn.on('data', (data) => {
+      if (data && data.type === 'move') {
+        this.game.makeMove(data.move);
+        this.render();
+      }
+    });
+
+    this.conn.on('close', () => {
+      alert('Seu adversário se desconectou.');
+      document.getElementById('online-status-text').textContent = 'Adversário desconectado.';
+    });
+  }
+
+  showOnlineConnecting(msg) {
+    document.getElementById('online-setup-box').style.display = 'none';
+    const box = document.getElementById('online-connected-box');
+    box.style.display = 'flex';
+    document.getElementById('room-code-display').textContent = '...';
+    document.getElementById('online-status-text').textContent = msg;
+  }
+
+  showOnlineConnected(code, msg) {
+    document.getElementById('online-setup-box').style.display = 'none';
+    const box = document.getElementById('online-connected-box');
+    box.style.display = 'flex';
+    document.getElementById('room-code-display').textContent = code;
+    document.getElementById('online-status-text').textContent = msg;
+  }
+
+  leaveOnlineRoom() {
+    if (this.conn) { this.conn.close(); this.conn = null; }
+    if (this.peer) { this.peer.destroy(); this.peer = null; }
+    this.roomCode = null;
+    document.getElementById('online-setup-box').style.display = 'flex';
+    document.getElementById('online-connected-box').style.display = 'none';
+    this.switchMode('solo');
+  }
+
+  render() {
+    this.renderBoard();
+    this.renderCaptured();
+    this.renderHistory();
+    this.updateStatus();
+  }
+
+  renderBoard() {
+    this.boardEl.innerHTML = '';
+    const inCheck = this.game.isInCheck(this.game.turn);
+    const kingPos = inCheck ? this.game.findKing(this.game.turn) : null;
+    const files = 'abcdefgh';
+    const ranks = '87654321';
+
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const sq = document.createElement('div');
+        const isLight = (r + c) % 2 === 0;
+        sq.className = `square ${isLight ? 'light' : 'dark'}`;
+        sq.dataset.r = r; sq.dataset.c = c;
+
+        if (this.selectedSquare && this.selectedSquare.r === r && this.selectedSquare.c === c) {
+          sq.classList.add('selected');
+        }
+
+        if (this.game.lastMove) {
+          if ((this.game.lastMove.from.r === r && this.game.lastMove.from.c === c) ||
+              (this.game.lastMove.to.r === r && this.game.lastMove.to.c === c)) {
+            sq.classList.add('last-move');
+          }
+        }
+
+        if (kingPos && kingPos.r === r && kingPos.c === c) {
+          sq.classList.add('in-check');
+        }
+
+        const piece = this.game.board[r][c];
+        if (piece) {
+          sq.innerHTML = PIECE_SVGS[piece[0]][piece[1]];
+        }
+
+        const targetMove = this.legalMovesForSelected.find(m => m.to.r === r && m.to.c === c);
+        if (targetMove) {
+          const dot = document.createElement('div');
+          dot.className = (piece || targetMove.isEnPassant) ? 'legal-capture' : 'legal-dot';
+          sq.appendChild(dot);
+        }
+
+        if (c === 7) {
+          const rLabel = document.createElement('span');
+          rLabel.className = 'coord coord-rank';
+          rLabel.textContent = ranks[r];
+          sq.appendChild(rLabel);
+        }
+        if (r === 7) {
+          const fLabel = document.createElement('span');
+          fLabel.className = 'coord coord-file';
+          fLabel.textContent = files[c];
+          sq.appendChild(fLabel);
+        }
+
+        sq.addEventListener('click', () => this.handleSquareClick(r, c));
+        this.boardEl.appendChild(sq);
+      }
+    }
+  }
+
+  handleSquareClick(r, c) {
+    if (this.game.gameOver) return;
+
+    if (this.mode === 'online') {
+      if (!this.conn) return;
+      if (this.game.turn !== this.myColor) return;
+    } else {
+      if (this.game.turn !== 'w') return;
+    }
+
+    if (this.selectedSquare) {
+      const matchMove = this.legalMovesForSelected.find(m => m.to.r === r && m.to.c === c);
+      if (matchMove) {
+        const piece = this.game.board[this.selectedSquare.r][this.selectedSquare.c];
+        const promoTargetRow = (this.myColor === 'w') ? 0 : 7;
+        if (piece === (this.myColor + 'p') && r === promoTargetRow) {
+          this.pendingMove = matchMove;
+          this.openPromoModal();
+          return;
+        }
+        this.executePlayerMove(matchMove);
+        return;
+      }
+    }
+
+    const clickedPiece = this.game.board[r][c];
+    const activeColor = (this.mode === 'online') ? this.myColor : 'w';
+
+    if (clickedPiece && clickedPiece[0] === activeColor) {
+      this.selectedSquare = { r, c };
+      const allLegals = this.game.getLegalMoves(activeColor);
+      this.legalMovesForSelected = allLegals.filter(m => m.from.r === r && m.from.c === c);
+    } else {
+      this.selectedSquare = null;
+      this.legalMovesForSelected = [];
+    }
+    this.render();
+  }
+
+  executePlayerMove(move) {
+    this.selectedSquare = null;
+    this.legalMovesForSelected = [];
+    this.game.makeMove(move);
+    this.render();
+
+    if (this.mode === 'online' && this.conn) {
+      this.conn.send({ type: 'move', move: move });
+    } else if (this.mode === 'solo' && !this.game.gameOver) {
+      this.triggerBotMove();
+    }
+  }
+
+  openPromoModal() {
+    const modal = document.getElementById('promo-modal');
+    const container = document.getElementById('promo-options');
+    container.innerHTML = '';
+    const color = (this.mode === 'online') ? this.myColor : 'w';
+
+    for (let type of ['q', 'r', 'b', 'n']) {
+      const btn = document.createElement('div');
+      btn.className = 'promo-piece-btn';
+      btn.innerHTML = PIECE_SVGS[color][type];
+      btn.addEventListener('click', () => {
+        modal.classList.remove('open');
+        this.pendingMove.promo = type;
+        this.executePlayerMove(this.pendingMove);
+        this.pendingMove = null;
+      });
+      container.appendChild(btn);
+    }
+    modal.classList.add('open');
+  }
+
+  triggerBotMove() {
+    this.updateStatus();
+    const rating = parseInt(this.diffSelect.value, 10);
+    const delay = 350 + Math.random() * 300;
+    setTimeout(() => {
+      const botMove = this.ai.getBestMove(rating);
+      if (botMove) {
+        if (!botMove.promo && botMove.to.r === 7 && this.game.board[botMove.from.r][botMove.from.c] === 'bp') {
+          botMove.promo = 'q';
+        }
+        this.game.makeMove(botMove);
+      }
+      this.render();
+    }, delay);
+  }
+
+  renderCaptured() {
+    const pieceSymbols = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' };
+    const valMap = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+    let wScore = 0, bScore = 0;
+    this.game.captured.w.forEach(p => wScore += valMap[p] || 0);
+    this.game.captured.b.forEach(p => bScore += valMap[p] || 0);
+
+    const formatCaps = (list, scoreDiff) => {
+      let html = list.map(p => `<span class="captured-item">${pieceSymbols[p] || p}</span>`).join('');
+      if (scoreDiff > 0) html += `<span class="score-diff">+${scoreDiff}</span>`;
+      return html;
+    };
+
+    if (this.myColor === 'w') {
+      this.capByBottomEl.innerHTML = formatCaps(this.game.captured.w, wScore - bScore);
+      this.capByTopEl.innerHTML = formatCaps(this.game.captured.b, bScore - wScore);
+    } else {
+      this.capByBottomEl.innerHTML = formatCaps(this.game.captured.b, bScore - wScore);
+      this.capByTopEl.innerHTML = formatCaps(this.game.captured.w, wScore - bScore);
+    }
+  }
+
+  renderHistory() {
+    if (this.game.history.length === 0 && !this.game.lastMove) {
+      this.historyEl.innerHTML = '<div style="color: #6b7280; text-align: center; margin-top: 50px;">A partida começará com e4...</div>';
+      return;
+    }
+    let html = '';
+    const turns = [];
+    let currentTurn = null;
+    for (let state of this.game.history) {
+      if (!state.lastMove) continue;
+      if (state.turn === 'w') {
+        if (currentTurn) {
+          currentTurn.b = state.lastMove.san;
+          turns.push(currentTurn);
+          currentTurn = null;
+        }
+      } else {
+        currentTurn = { num: state.fullMoves, w: state.lastMove.san, b: '' };
+      }
+    }
+    if (this.game.lastMove) {
+      if (this.game.turn === 'b') {
+        if (!currentTurn) currentTurn = { num: this.game.fullMoves, w: this.game.lastMove.san, b: '' };
+      } else {
+        if (currentTurn) {
+          currentTurn.b = this.game.lastMove.san;
+          turns.push(currentTurn);
+          currentTurn = null;
+        }
+      }
+    }
+    if (currentTurn) turns.push(currentTurn);
+    html = turns.map(t => `
+      <div class="move-row">
+        <span class="move-num">${t.num}.</span>
+        <span class="move-cell ${t.w ? 'active' : ''}">${t.w || ''}</span>
+        <span class="move-cell ${t.b ? 'active' : ''}">${t.b || ''}</span>
+      </div>
+    `).join('');
+    this.historyEl.innerHTML = html;
+    this.historyEl.scrollTop = this.historyEl.scrollHeight;
+  }
+
+  updateStatus() {
+    if (this.game.gameOver) {
+      this.statusBadgeEl.className = 'status-badge game-over';
+      if (this.mode === 'online') {
+        if (this.game.result.winner === this.myColor) {
+          this.statusBadgeEl.textContent = 'Vitória! Você venceu a partida!';
+        } else if (this.game.result.winner) {
+          this.statusBadgeEl.textContent = 'Derrota. O adversário venceu.';
+        } else {
+          this.statusBadgeEl.textContent = `Empate: ${this.game.result.reason}`;
+        }
+      } else {
+        if (this.game.result.winner === 'w') {
+          this.statusBadgeEl.textContent = 'Vitória! Você venceu por xeque-mate!';
+        } else if (this.game.result.winner === 'b') {
+          this.statusBadgeEl.textContent = 'Derrota. O rival venceu por xeque-mate.';
+        } else {
+          this.statusBadgeEl.textContent = `Fim de jogo: ${this.game.result.reason}`;
+        }
+      }
+    } else {
+      const isMyTurn = (this.mode === 'online') ? (this.game.turn === this.myColor) : (this.game.turn === 'w');
+      const inCheck = this.game.isInCheck(this.game.turn);
+      if (isMyTurn) {
+        this.statusBadgeEl.className = 'status-badge your-turn';
+        this.statusBadgeEl.textContent = inCheck ? 'Seu Rei está em xeque!' : 'Sua vez de jogar';
+      } else {
+        this.statusBadgeEl.className = 'status-badge opp-turn';
+        this.statusBadgeEl.textContent = (this.mode === 'online') ? 'Vez do adversário...' : 'Rival pensando...';
+      }
+    }
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  new ChessUI();
+});
+</script>
+</body>
+</html>
+
