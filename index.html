@@ -731,7 +731,7 @@ class ChessGame {
       halfMoves: this.halfMoves,
       fullMoves: this.fullMoves,
       captured: { w: [...this.captured.w], b: [...this.captured.b] },
-      lastMove: this.lastMove ? { from: {...this.lastMove.from}, to: {...this.lastMove.to} } : null,
+      lastMove: this.lastMove ? { from: {...this.lastMove.from}, to: {...this.lastMove.to}, san: this.lastMove.san } : null,
       gameOver: this.gameOver,
       result: this.result
     };
@@ -748,7 +748,7 @@ class ChessGame {
     this.halfMoves = s.halfMoves;
     this.fullMoves = s.fullMoves;
     this.captured = { w: [...s.captured.w], b: [...s.captured.b] };
-    this.lastMove = s.lastMove ? { from: {...s.lastMove.from}, to: {...s.lastMove.to} } : null;
+    this.lastMove = s.lastMove ? { from: {...s.lastMove.from}, to: {...s.lastMove.to}, san: s.lastMove.san } : null;
     this.gameOver = s.gameOver;
     this.result = s.result;
   }
